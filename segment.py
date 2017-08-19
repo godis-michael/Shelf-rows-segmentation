@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-row_amount = 5
+row_amount = 7
 shelf_height = 75
 row_height = 9
 space_height = 2
@@ -20,7 +20,7 @@ ret,th = cv2.threshold(gray,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
 reduced_h = cv2.reduce(th, 1, cv2.REDUCE_AVG)
 
 largest_lines_average = int(np.average(np.sort(reduced_h, axis=0)[-row_height_px*row_amount:]))
-remove_too_small_lines = reduced_h[:,0] < largest_lines_average/2
+remove_too_small_lines = reduced_h[:,0] < largest_lines_average/3
 reduced_h[remove_too_small_lines] = 0
 
 pt1,pt2 = 0,0
@@ -51,16 +51,44 @@ get_sizes = lambda array: array[:, 1] - array[:, 0]
 
 regions = regions[get_sizes(regions) > space_height_px]
 
-for size in get_sizes(regions):
-    print(size)
+def not_high_enough(array):
+    return array[1] - array[0] < row_height_px
 
-# print(regions)
+def space_is_low(array, index):
+    return array[index + 1, 0] - array[index, 1] < space_height_px * 1.5
+
+def connect_regions(array):
+    # result = np.copy(array)
+    for region in range(array.shape[0]):
+        if region < array.shape[0]-1:
+            if not_high_enough(array[region, :]) and not_high_enough(array[region + 1, :]):
+                if space_is_low(array, region):
+                    array[region, :] = [array[region, 0], array[region + 1, 1]]
+                    array = np.delete(array, array + 1, axis=0)
+                    connect_regions(array)
+        else:
+            break
+    return array
+
+print(connect_regions(regions))
+
+#     result = np.copy(array)
 #
-# for coord in regions:
-#     cv2.rectangle(image, (0,coord[0]), (largest_lines_average,coord[1]), (0,255,0), -1)
+#     for region in range(array.shape[0]):
+#         if region != array.shape[0]-1:
+#             if not_high_enough(array[region, :]) and not_high_enough(array[region + 1, :]):
+#                 if space_is_low(array, region):
+#                     result[region,:] = [array[region, 0], array[region + 1, 1]]
+#                     result = np.delete(result, region+1, axis=0)
+#     return result
 #
-# result_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-# plt.imshow(result_image), plt.show()
+graph = connect_regions(regions)
+
+for coord in graph:
+    cv2.rectangle(image, (0,coord[0]), (largest_lines_average,coord[1]), (0,255,0), -1)
+
+result_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+plt.imshow(result_image), plt.show()
 
 
 
