@@ -1,11 +1,13 @@
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
+from matplotlib import gridspec as gs
+
 
 row_amount = 7
-shelf_height = 75
 row_height = 9
-space_height = 2
+space_height = 4
+shelf_height = (row_amount * row_height) + ((row_amount+1) * space_height)
 
 image = cv2.imread('test6.jpg')
 
@@ -43,121 +45,40 @@ for i in range(img_height):
         regions.append([pt1, pt2])
         found = False
 
-    # if reduced_h[i,0]:
-    #     cv2.line(image, (0,i), (largest_lines_average, i), [0, 255, 0], 1)
-
 regions = np.asarray(regions, dtype=np.int16)
 get_sizes = lambda array: array[:, 1] - array[:, 0]
 
 regions = regions[get_sizes(regions) > space_height_px]
 
 def not_high_enough(array):
-    return array[1] - array[0] < row_height_px
+    return array[1] - array[0] < row_height_px * 0.9
 
 def space_is_low(array, index):
     return array[index + 1, 0] - array[index, 1] < space_height_px * 1.5
 
-def connect_regions(array):
-    # result = np.copy(array)
-    for region in range(array.shape[0]):
-        if region < array.shape[0]-1:
-            if not_high_enough(array[region, :]) and not_high_enough(array[region + 1, :]):
-                if space_is_low(array, region):
-                    array[region, :] = [array[region, 0], array[region + 1, 1]]
-                    array = np.delete(array, array + 1, axis=0)
-                    connect_regions(array)
-        else:
-            break
-    return array
+def connect_regions(regions, index=0):
+    if index < regions.shape[0] - 1:
+        if not_high_enough(regions[index, :]) and not_high_enough(regions[index + 1, :]):
+            if space_is_low(regions, index):
+                regions[index, :] = [regions[index, 0], regions[index + 1, 1]]
+                regions = np.delete(regions, index + 1, axis=0)
+        index += 1
+        return connect_regions(regions, index)
+    else:
+        return regions
 
-print(connect_regions(regions))
-
-#     result = np.copy(array)
-#
-#     for region in range(array.shape[0]):
-#         if region != array.shape[0]-1:
-#             if not_high_enough(array[region, :]) and not_high_enough(array[region + 1, :]):
-#                 if space_is_low(array, region):
-#                     result[region,:] = [array[region, 0], array[region + 1, 1]]
-#                     result = np.delete(result, region+1, axis=0)
-#     return result
-#
 graph = connect_regions(regions)
-
-for coord in graph:
-    cv2.rectangle(image, (0,coord[0]), (largest_lines_average,coord[1]), (0,255,0), -1)
-
 result_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-plt.imshow(result_image), plt.show()
 
+gs1 = gs.GridSpec(len(graph),2)
+plt.subplot(gs1[:,0]), plt.imshow(result_image)
 
+if len(graph):
+    gs2 = gs.GridSpec(len(graph), 2)
+    for index,coord in enumerate(graph):
+        plt.subplot(gs2[index, 1]), plt.imshow(result_image[coord[0]:coord[1], 0:img_width])
+        plt.text(img_width + 10, (coord[1]-coord[0])/2 + 5, index + 1)
+        plt.xticks([]), plt.yticks([])
 
+plt.show()
 
-
-
-
-
-
-
-
-# plt.subplot(121),plt.imshow(gray, cmap='gray')
-# plt.subplot(122),plt.imshow(image)
-# plt.show()
-
-
-# cv2.line(image, (0,i), (reduced_h[i, 0], i), [0, 255, 0], 1)
-
-# new = reduced_h[:,0]
-# print(new.min(), new.max())
-
-
-
-# blur = cv2.GaussianBlur(image,(5,5),0)
-
-# ret,th = cv2.threshold(image,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-# sobely = cv2.Sobel(th, cv2.CV_64F, 0, 1, ksize=5)
-# sobely = cv2.Sobel(th, cv2.CV_64F, 0, 1, ksize=5)
-# sobely32 = cv2.Sobel(image, cv2.CV_32F, 0, 1, ksize=5)
-# laplacian = cv2.Laplacian(image,cv2.CV_64F)
-#
-# plt.subplot(121),plt.imshow(sobely, cmap='gray')
-# plt.show()
-
-# edges = cv2.Canny(image, 80, 120)
-# sobely = cv2.Sobel(edges, cv2.CV_64F, 0, 1, ksize=5)
-# blur = cv2.GaussianBlur(edges,(5,5),0)
-# lines = cv2.HoughLinesP(image,1,np.pi/2, 500, None, 500 ,50)
-#
-# try:
-#     for line in lines:
-#         coords = line[0]
-#         cv2.line(image, (coords[0],coords[1]), (coords[2],coords[3]), [255,100,100], 3)
-# except:
-#     pass
-#
-# plt.imshow(image, cmap='gray')
-# plt.show()
-
-# edges = cv2.Canny(reduced_w_graph, 100,200)
-# pts = cv2.findNonZero(edges)
-# rect_y = 0
-# rect_height = rows
-# rects = []
-#
-# if not len(pts):
-#     rects.append(cv2.rectangle(image,(0,rect_y),(cols,rect_height), [0,255,0], 1))
-#
-# ref_x = 0
-# ref_y = 0
-#
-# for i in range(len(pts)):
-#     rect_height = pts[i,0,1]-ref_y
-#     rects.append(cv2.rectangle(image, (0,rect_y), (cols, rect_height), [0, 255, 0], 1))
-#     rect_y = pts[i,0,1]
-#     ref_y = rect_y
-#
-#     if i == len(pts) - 1:
-#         rect_height = rows - pts[i,0,1]
-#         rects.append(cv2.rectangle(image, (0,rect_y), (cols, rect_height), [0, 255, 0], 1))
-
-# print(len(rects))
